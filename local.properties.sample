@@ -1,0 +1,9 @@
+# Copy this file to `local.properties` and fill in the values.
+# `local.properties` is gitignored so your secrets stay local.
+
+# Android SDK location (Android Studio normally sets this automatically on first open).
+sdk.dir=/ABSOLUTE/PATH/TO/YOUR/Android/sdk
+
+# OpenCelliD API token — used by Phase 4 tower coverage lookups.
+# Register at https://opencellid.org to get a free token.
+OPENCELLID_API_KEY=YOUR_TOKEN_HERE
