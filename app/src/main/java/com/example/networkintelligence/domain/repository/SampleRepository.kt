@@ -15,7 +15,11 @@ interface SampleRepository {
 
     suspend fun getLatest(): NetworkSample?
 
+    fun observeLatest(): Flow<NetworkSample?>
+
     suspend fun count(): Int
+
+    fun observeCount(): Flow<Int>
 
     suspend fun deleteOlderThan(timestamp: Long): Int
 }
