@@ -165,7 +165,7 @@ private fun SamplesList(samples: List<NetworkSample>) {
         )
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.height(300.dp),
+//            modifier = Modifier.height(300.dp),
         ) {
             items(samples.reversed().take(50), key = { it.id }) { sample ->
                 SampleRow(sample)

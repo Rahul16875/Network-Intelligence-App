@@ -10,6 +10,7 @@ data class Insight(
     val timeWindow: TimeWindow? = null,
     val generatedAt: Long,
     val evidenceSampleCount: Int,
+    val diagnosisCause: DiagnosisCause? = null,
 )
 
 enum class InsightType {

@@ -8,6 +8,7 @@ data class Recommendation(
     val expectedBenefit: String?,
     val locationHash: String? = null,
     val generatedAt: Long,
+    val sourceType: SourceType = SourceType.MEASURED,
 )
 
 enum class RecommendationCategory {
@@ -16,4 +17,7 @@ enum class RecommendationCategory {
     AVOID_ZONE,
     TIME_SHIFT_HEAVY_TASK,
     SWITCH_CARRIER_SUGGESTION,
+    PREDICTED_BEST_PROVIDER,
 }
+
+enum class SourceType { MEASURED, PREDICTED }

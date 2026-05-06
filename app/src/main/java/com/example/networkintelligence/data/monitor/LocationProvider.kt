@@ -7,6 +7,8 @@ import android.location.Location
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Priority
+import android.util.Log
+import com.example.networkintelligence.util.APP_TAG
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -21,8 +23,18 @@ class LocationProvider @Inject constructor(
 ) {
 
     suspend fun getCoarseBucket(): String? {
-        val location = lastKnownLocation() ?: return null
-        return bucketHash(location.latitude, location.longitude)
+        if (!hasAnyLocationPermission()) {
+            Log.w(TAG, "getCoarseBucket: no location permission granted")
+            return null
+        }
+        val location = lastKnownLocation()
+        if (location == null) {
+            Log.w(TAG, "getCoarseBucket: location is null (GPS off or cold start with no cached location)")
+            return null
+        }
+        val bucket = bucketHash(location.latitude, location.longitude)
+        Log.i(TAG, "getCoarseBucket: lat=${location.latitude} lng=${location.longitude} → bucket=$bucket")
+        return bucket
     }
 
     private suspend fun lastKnownLocation(): Location? {
@@ -81,6 +93,7 @@ class LocationProvider @Inject constructor(
     }
 
     private companion object {
+        private const val TAG = APP_TAG
         // 100 buckets per degree latitude ≈ ~1.11 km per bucket.
         const val BUCKETS_PER_DEGREE: Double = 100.0
     }
