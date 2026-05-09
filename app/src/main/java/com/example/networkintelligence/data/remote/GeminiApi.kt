@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.networkintelligence.BuildConfig
 import com.example.networkintelligence.util.APP_TAG
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -67,20 +68,44 @@ class GeminiApi @Inject constructor(
                 .post(payload.toRequestBody("application/json".toMediaType()))
                 .build()
 
+            callWithRetry(request)
+        }
+
+    private suspend fun callWithRetry(request: okhttp3.Request): String {
+        repeat(MAX_RETRIES) { attempt ->
             try {
-                client.newCall(request).execute().use { response ->
-                    val body = response.body?.string() ?: return@withContext ERROR_RESPONSE
-                    if (!response.isSuccessful) {
-                        Log.w(APP_TAG, "Gemini API error ${response.code}: $body")
-                        return@withContext "Error ${response.code}: Unable to get a response. Please try again."
-                    }
-                    parseResponse(body)
+                val response = client.newCall(request).execute()
+                val body = response.body?.string()
+
+                if (response.code == 429) {
+                    val waitMs = RETRY_DELAY_MS * (attempt + 1)
+                    Log.w(APP_TAG, "Gemini 429 rate limit (attempt ${attempt + 1}), retrying in ${waitMs}ms")
+                    response.close()
+                    delay(waitMs)
+                    return@repeat
                 }
+
+                if (!response.isSuccessful) {
+                    Log.w(APP_TAG, "Gemini API error ${response.code}: $body")
+                    response.close()
+                    return when (response.code) {
+                        401, 403 -> "API key error. Please check your Gemini API key configuration."
+                        500, 503 -> "Gemini service is temporarily unavailable. Please try again shortly."
+                        else -> "Something went wrong (code ${response.code}). Please try again."
+                    }
+                }
+
+                return parseResponse(body ?: return ERROR_RESPONSE)
             } catch (t: Throwable) {
-                Log.e(APP_TAG, "Gemini API exception: ${t.message}")
-                "Network error: ${t.message ?: "Unknown error"}. Please check your connection and try again."
+                Log.e(APP_TAG, "Gemini API exception (attempt ${attempt + 1}): ${t.message}")
+                if (attempt == MAX_RETRIES - 1) {
+                    return "Network error. Please check your connection and try again."
+                }
+                delay(RETRY_DELAY_MS)
             }
         }
+        return "The AI is busy right now — you've hit the free-tier rate limit. Wait a few seconds and try again."
+    }
 
     private fun parseResponse(body: String): String {
         return try {
@@ -104,5 +129,7 @@ class GeminiApi @Inject constructor(
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
         private const val ERROR_RESPONSE =
             "Sorry, I couldn't parse the response. Please try again."
+        private const val MAX_RETRIES = 3
+        private const val RETRY_DELAY_MS = 5_000L  // 5s between retries on 429
     }
 }
