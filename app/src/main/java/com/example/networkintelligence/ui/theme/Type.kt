@@ -17,6 +17,7 @@ private val GoogleFontsProvider = GoogleFont.Provider(
 
 private val SpaceGrotesk = GoogleFont("Space Grotesk")
 private val Inter = GoogleFont("Inter")
+private val JetBrainsMono = GoogleFont("JetBrains Mono")
 
 val SpaceGroteskFamily = FontFamily(
     Font(googleFont = SpaceGrotesk, fontProvider = GoogleFontsProvider, weight = FontWeight.Normal),
@@ -30,6 +31,11 @@ val InterFamily = FontFamily(
     Font(googleFont = Inter, fontProvider = GoogleFontsProvider, weight = FontWeight.Medium),
     Font(googleFont = Inter, fontProvider = GoogleFontsProvider, weight = FontWeight.SemiBold),
     Font(googleFont = Inter, fontProvider = GoogleFontsProvider, weight = FontWeight.Bold),
+)
+
+val JetBrainsMonoFamily = FontFamily(
+    Font(googleFont = JetBrainsMono, fontProvider = GoogleFontsProvider, weight = FontWeight.Normal),
+    Font(googleFont = JetBrainsMono, fontProvider = GoogleFontsProvider, weight = FontWeight.Bold),
 )
 
 val Typography = Typography(

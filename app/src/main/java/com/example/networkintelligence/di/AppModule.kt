@@ -17,6 +17,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
+    /** Short-timeout client used for latency probes. */
     @Provides
     @Singleton
     fun provideOkHttpClient(): OkHttpClient =
@@ -27,15 +28,29 @@ object AppModule {
             .retryOnConnectionFailure(false)
             .build()
 
+    /** Long-timeout client for speed tests (up to 60s to download 10 MB). */
     @Provides
     @Singleton
-    @Named("opencellid")
-    fun provideOpenCellIdOkHttpClient(): OkHttpClient =
+    @Named("speedtest")
+    fun provideSpeedTestClient(): OkHttpClient =
         OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .callTimeout(20, TimeUnit.SECONDS)
-            .retryOnConnectionFailure(true)
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .callTimeout(90, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(false)
+            .build()
+
+    /** Long-timeout client for Gemini API calls. */
+    @Provides
+    @Singleton
+    @Named("gemini")
+    fun provideGeminiClient(): OkHttpClient =
+        OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(40, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(false)
             .build()
 
     @Provides

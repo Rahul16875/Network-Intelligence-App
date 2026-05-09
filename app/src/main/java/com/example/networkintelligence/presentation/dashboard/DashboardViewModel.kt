@@ -1,80 +1,92 @@
 package com.example.networkintelligence.presentation.dashboard
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.networkintelligence.data.monitor.LatencyProbe
+import com.example.networkintelligence.data.monitor.LocationProvider
+import com.example.networkintelligence.data.monitor.NetworkMonitor
+import com.example.networkintelligence.data.speedtest.SpeedTestClient
 import com.example.networkintelligence.domain.engine.DiagnosisEngine
-import com.example.networkintelligence.domain.model.Diagnosis
+import com.example.networkintelligence.domain.engine.ScoreEngine
+import com.example.networkintelligence.domain.model.NetworkMeasurement
 import com.example.networkintelligence.domain.model.NetworkSample
-import com.example.networkintelligence.domain.repository.SampleRepository
-import com.example.networkintelligence.worker.WorkScheduler
+import com.example.networkintelligence.util.APP_TAG
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class DashboardUiState(
-    val latest: NetworkSample? = null,
-    val totalSamples: Int = 0,
-    val monitoring: Boolean = false,
-    val diagnosis: Diagnosis? = null,
-    val scoreDeltaVsOneHourAgo: Int? = null,
-)
+sealed class MeasureState {
+    data object Idle : MeasureState()
+    data object Measuring : MeasureState()
+    data class Done(val measurement: NetworkMeasurement) : MeasureState()
+    data class Error(val message: String) : MeasureState()
+}
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    sampleRepository: SampleRepository,
+    private val networkMonitor: NetworkMonitor,
+    private val latencyProbe: LatencyProbe,
+    private val speedTestClient: SpeedTestClient,
+    private val scoreEngine: ScoreEngine,
     private val diagnosisEngine: DiagnosisEngine,
-    private val workScheduler: WorkScheduler,
+    private val locationProvider: LocationProvider,
 ) : ViewModel() {
 
-    private val _monitoring = MutableStateFlow(false)
+    private val _state = MutableStateFlow<MeasureState>(MeasureState.Idle)
+    val state: StateFlow<MeasureState> = _state.asStateFlow()
 
-    val uiState: StateFlow<DashboardUiState> =
-        combine(
-            sampleRepository.observeRecent(limit = RECENT_LIMIT),
-            sampleRepository.observeCount(),
-            _monitoring.asStateFlow(),
-        ) { recent, count, monitoring ->
-            val latest = recent.firstOrNull()
-            DashboardUiState(
-                latest = latest,
-                totalSamples = count,
-                monitoring = monitoring,
-                diagnosis = latest?.let { diagnosisEngine.diagnose(it, recent) },
-                scoreDeltaVsOneHourAgo = latest?.let { scoreDeltaVsOneHourAgo(it, recent) },
-            )
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = DashboardUiState(),
-        )
+    fun measure() {
+        if (_state.value is MeasureState.Measuring) return
+        viewModelScope.launch {
+            _state.value = MeasureState.Measuring
+            try {
+                Log.i(APP_TAG, "DashboardVM: starting measurement")
 
-    fun startMonitoring() {
-        workScheduler.startPeriodicMonitoring()
-        _monitoring.value = true
-    }
+                val snapshot = networkMonitor.captureSnapshot()
+                Log.i(APP_TAG, "DashboardVM: network=${snapshot.networkType} provider=${snapshot.providerName} signal=${snapshot.signalStrengthDbm}dBm")
 
-    fun stopMonitoring() {
-        workScheduler.stopPeriodicMonitoring()
-        _monitoring.value = false
-    }
+                val probeResult = latencyProbe.probe()
+                Log.i(APP_TAG, "DashboardVM: latency=${probeResult.avgLatencyMs}ms failureRate=${probeResult.failureRate}")
 
-    fun captureOnce() {
-        workScheduler.captureOnce()
-    }
+                val speedResult = speedTestClient.measure()
+                Log.i(APP_TAG, "DashboardVM: download=${speedResult.downloadMbps}Mbps upload=${speedResult.uploadMbps}Mbps")
 
-    private fun scoreDeltaVsOneHourAgo(latest: NetworkSample, recent: List<NetworkSample>): Int? {
-        val threshold = latest.timestamp - ONE_HOUR_MS
-        val reference = recent.firstOrNull { it.timestamp <= threshold } ?: return null
-        return latest.score - reference.score
-    }
+                val sample = NetworkSample(
+                    timestamp = System.currentTimeMillis(),
+                    networkType = snapshot.networkType,
+                    providerName = snapshot.providerName,
+                    signalStrengthDbm = snapshot.signalStrengthDbm,
+                    latencyMs = probeResult.avgLatencyMs,
+                    probeFailureRate = probeResult.failureRate,
+                    score = 0,
+                )
+                val score = scoreEngine.calculate(sample)
+                val scoredSample = sample.copy(score = score)
+                val diagnosis = diagnosisEngine.diagnose(scoredSample)
 
-    private companion object {
-        const val RECENT_LIMIT = 60
-        const val ONE_HOUR_MS = 60L * 60L * 1000L
+                Log.i(APP_TAG, "DashboardVM: score=$score diagnosis=${diagnosis.cause}")
+
+                _state.value = MeasureState.Done(
+                    NetworkMeasurement(
+                        timestamp = scoredSample.timestamp,
+                        networkType = scoredSample.networkType,
+                        providerName = scoredSample.providerName,
+                        signalStrengthDbm = scoredSample.signalStrengthDbm,
+                        latencyMs = scoredSample.latencyMs,
+                        downloadMbps = speedResult.downloadMbps,
+                        uploadMbps = speedResult.uploadMbps,
+                        score = score,
+                        diagnosis = diagnosis,
+                    )
+                )
+            } catch (t: Throwable) {
+                Log.e(APP_TAG, "DashboardVM: measurement failed: ${t.message}")
+                _state.value = MeasureState.Error(t.message ?: "Unknown error")
+            }
+        }
     }
 }

@@ -11,7 +11,7 @@ import javax.inject.Singleton
 @Singleton
 class DiagnosisEngineImpl @Inject constructor() : DiagnosisEngine {
 
-    override fun diagnose(sample: NetworkSample, history: List<NetworkSample>): Diagnosis {
+    override fun diagnose(sample: NetworkSample): Diagnosis {
         if (sample.networkType == NetworkType.NONE) {
             return Diagnosis(
                 cause = DiagnosisCause.NO_NETWORK,
