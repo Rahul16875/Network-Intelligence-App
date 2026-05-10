@@ -1,0 +1,9 @@
+# Copy this file to `local.properties` and fill in the values.
+# `local.properties` is gitignored so your secrets stay local.
+
+# Android SDK location (Android Studio normally sets this automatically on first open).
+sdk.dir=/ABSOLUTE/PATH/TO/YOUR/Android/sdk
+
+# Gemini AI API key — used by the Ask AI tab.
+# Get a free key at https://aistudio.google.com/
+GEMINI_API_KEY=YOUR_KEY_HERE
