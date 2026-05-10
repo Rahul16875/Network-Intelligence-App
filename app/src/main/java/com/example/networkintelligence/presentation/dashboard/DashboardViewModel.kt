@@ -4,7 +4,6 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.networkintelligence.data.monitor.LatencyProbe
-import com.example.networkintelligence.data.monitor.LocationProvider
 import com.example.networkintelligence.data.monitor.NetworkMonitor
 import com.example.networkintelligence.data.speedtest.SpeedTestClient
 import com.example.networkintelligence.domain.engine.DiagnosisEngine
@@ -33,7 +32,6 @@ class DashboardViewModel @Inject constructor(
     private val speedTestClient: SpeedTestClient,
     private val scoreEngine: ScoreEngine,
     private val diagnosisEngine: DiagnosisEngine,
-    private val locationProvider: LocationProvider,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<MeasureState>(MeasureState.Idle)
